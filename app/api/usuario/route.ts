@@ -1,35 +1,49 @@
 // app/api/usuario/route.ts
-export const runtime = "nodejs";          // fuerza runtime Node (no Edge)
-export const dynamic = "force-dynamic";   // evita caché en dev
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
+import { pool } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const telegramId = req.nextUrl.searchParams.get("telegram_id");
+
   if (!telegramId) {
-    return NextResponse.json({ error: "telegram_id requerido" }, { status: 400 });
+    return NextResponse.json(
+      { error: "telegram_id requerido" },
+      { status: 400 }
+    );
   }
 
   try {
-    // Llama a tu FastAPI local
-    const res = await fetch(
-      `http://35.223.72.198:8000/validar_usuario?telegram_id=${encodeURIComponent(telegramId)}`,
-      { headers: { Accept: "application/json" } }
+    // Consultar en la tabla usuarios_registrados de PostgreSQL
+    const result = await pool.query(
+      `SELECT nombre, documento, telegram_id
+       FROM public.usuarios_registrados
+       WHERE telegram_id = $1
+       LIMIT 1`,
+      [telegramId]
     );
-    // Si FastAPI respondió con HTML (error, etc.), lo detectamos
-    const ct = res.headers.get("content-type") ?? "";
-    if (!ct.includes("application/json")) {
-      const text = await res.text();
+
+    if (result.rows.length === 0) {
       return NextResponse.json(
-        { error: `FastAPI no devolvió JSON (${res.status})`, preview: text.slice(0, 200) },
-        { status: 502 }
+        { error: "Usuario no registrado en el sistema" },
+        { status: 404 }
       );
     }
 
-    const data = await res.json();
-    return NextResponse.json(data);
+    const usuario = result.rows[0];
+
+    return NextResponse.json({
+      nombre: usuario.nombre,
+      documento: usuario.documento,
+      telegram_id: usuario.telegram_id,
+    });
   } catch (error: any) {
-    console.error("❌ Error comunicando con FastAPI:", error);
-    return NextResponse.json({ error: "Error comunicando con FastAPI" }, { status: 500 });
+    console.error("❌ Error consultando usuario:", error);
+    return NextResponse.json(
+      { error: "Error consultando base de datos" },
+      { status: 500 }
+    );
   }
 }

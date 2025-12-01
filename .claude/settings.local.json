@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: integrate Odoo API and implement Telegram authentication\n\n- Add new API endpoints for empleados, contratos, and vehiculos-por-contrato\n- Rewrite guardar-posoperacional to POST to Odoo API with Bearer token auth\n- Update usuario endpoint to validate users via PostgreSQL\n- Implement Telegram-based auto-login flow with employee auto-selection\n- Add KM inicial field and automatic KM traveled calculation\n- Fix timezone handling to prevent 5-hour offset in dates\n- Remove old vehiculos-por-persona endpoint using preoperacional.json\n- Implement token management across all API calls\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

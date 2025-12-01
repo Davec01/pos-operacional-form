@@ -1,115 +1,92 @@
-import { NextResponse } from 'next/server'
-import { pool } from '@/lib/db'
-// import { Pool } from 'pg'
+import { NextRequest, NextResponse } from "next/server";
 
-// const pool = new Pool({
-//   user: 'viacotur',
-//   host: 'localhost',       // o la IP de tu contenedor
-//   database: 'viacotur',
-//   password: 'viacotur_pass',
-//   port: 5432,
-// })
+export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-  const data = await req.json()
-
+export async function POST(req: NextRequest) {
   try {
-    // const query = `
-    //   INSERT INTO pos_operacional (
-    //     telegram_id,
-    //     empleado,
-    //     contrato,
-    //     vehiculo,
-    //     fecha_entrada,
-    //     fecha_salida,
-    //     km_final,
-    //     planilla_servicios_nombre,
-    //     tanqueo,
-    //     tipo_combustible,
-    //     km_final_combustible,
-    //     tanqueo_gastos,
-    //     galones_tanqueados,
-    //     total_facturas_combustible,
-    //     facturas_combustible,
-    //     tiene_gastos_operacionales,
-    //     total_factura_alimentacion,
-    //     facturas_alimentacion,
-    //     total_factura_hospedaje,
-    //     facturas_hospedaje,
-    //     total_factura_peajes,
-    //     facturas_peajes,
-    //     total_factura_otros,
-    //     facturas_otros,
-    //     observaciones
-    //   ) VALUES (
-    //     $1, $2, $3, $4, $5, $6,
-    //     $7, $8, $9, $10, $11, $12,
-    //     $13, $14, $15, $16, $17,
-    //     $18, $19, $20, $21, $22, $23,
-    //     $24, $25
-    //   )
-    // `
+    const data = await req.json();
 
-    // const values = [
-    //   data.telegram_id,
-    //   data.empleado,
-    //   data.contrato,
-    //   data.vehiculo,
-    //   data.fechaEntrada,
-    //   data.fechaSalida,
-    //   data.kmFinal,
-    //   data.planillaServiciosNombre || null,
-    //   data.tanqueo || false,
-    //   data.tipoCombustible || null,
-    //   data.kmFinalCombustible || null,
-    //   data.tanqueoGastos || false,
-    //   data.galonesTanqueados || null,
-    //   data.totalFacturasCombustible || null,
-    //   data.facturasCombustible || [],
-    //   data.tieneGastosOperacionales || false,
-    //   data.totalFacturaAlimentacion || null,
-    //   data.facturasAlimentacion || [],
-    //   data.totalFacturaHospedaje || null,
-    //   data.facturasHospedaje || [],
-    //   data.totalFacturaPeajes || null,
-    //   data.facturasPeajes || [],
-    //   data.totalFacturaOtros || null,
-    //   data.facturasOtros || [],
-    //   data.observaciones || null
-    // ]
+    // Validar que tengamos el token
+    if (!data.token) {
+      return NextResponse.json(
+        { error: "Token de autenticación requerido" },
+        { status: 400 }
+      );
+    }
 
-  const query = `
-    INSERT INTO pos_operacional (
-      telegram_id,
-      empleado,
-      contrato,
-      vehiculo,
-      fecha_entrada,
-      fecha_salida,
-      km_final,
-      observaciones
-    ) VALUES (
-      $1, $2, $3, $4, $5, $6,
-      $7, $8
-    )
-  `
+    // Preparar el body según el formato de Odoo
+    const odooBody = {
+      state: "draft",
+      company_id: 1,
+      employee_id: data.employee_id,
 
-  const values = [
-    data.telegram_id,
-    data.empleado,
-    data.contrato,
-    data.vehiculo,
-    data.fechaEntrada,
-    data.fechaSalida,
-    data.kmFinal,
-    data.observaciones || null
-  ]
+      check_in: data.check_in,
+      check_out: data.check_out,
 
+      agreement_id: data.agreement_id,
+      vehicle_id: data.vehicle_id,
+      lunch_hour: data.lunch_hour || 1.0,
+      km_start: data.km_start || 0,
+      km_end: data.km_end || 0,
+      km_traveled: data.km_traveled || 0,
+      cost_id: data.cost_id || "",
 
-    await pool.query(query, values)
-    return NextResponse.json({ success: true })
+      fuel_type: data.fuel_type || "diesel",
+      fuel: data.fuel || false,
+      fuel_value: data.fuel_value || 0,
+      fuel_expenses: data.fuel_expenses || false,
+      km_fuel: data.km_fuel || 0,
+      gallons: data.gallons || 0,
+
+      feeding_value: data.feeding_value || 0,
+      feeding: data.feeding || false,
+      lodging_value: data.lodging_value || 0,
+      lodging: data.lodging || false,
+      tolls_value: data.tolls_value || 0,
+      tolls: data.tolls || false,
+      others_value: data.others_value || 0,
+      others: data.others || false,
+
+      observations: data.observations || "",
+      notes: data.notes || "",
+
+      attachment: data.attachment || false,
+      attachment_filename: data.attachment_filename || false,
+    };
+
+    // Hacer POST a Odoo con el token
+    const response = await fetch(
+      "https://viacotur16-qa11-22388022.dev.odoo.com/api/posoperacional/register",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.token}`,
+        },
+        body: JSON.stringify(odooBody),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Error de Odoo:", errorData);
+      return NextResponse.json(
+        { error: "Error al registrar en Odoo", details: errorData },
+        { status: response.status }
+      );
+    }
+
+    const result = await response.json();
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+    });
   } catch (error) {
-    console.error('Error al guardar POS-OPERACIONAL:', error)
-    return NextResponse.json({ error: 'Error al guardar en BD' }, { status: 500 })
+    console.error("Error al guardar POS-OPERACIONAL:", error);
+    return NextResponse.json(
+      { error: "Error al guardar en Odoo" },
+      { status: 500 }
+    );
   }
 }
