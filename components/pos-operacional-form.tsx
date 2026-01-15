@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRef, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { Calendar, FileText, Fuel, HandCoins, Info, LogIn, LogOut, Truck, User } from "lucide-react";
+import { Calendar, Clock, FileText, Fuel, HandCoins, Info, LogIn, LogOut, Truck, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,8 +27,9 @@ type Vehiculo = {
   ultimo_odometro: number;
   conductor: string;
   estado: string;
-  tipo_solicitud: string;
-  capacidad_pasajeros: number;
+  contrato?: string;
+  tipo_solicitud?: string;
+  capacidad_pasajeros?: number;
 };
 
 // Helper UI
@@ -63,9 +64,8 @@ export default function PosOperacionalForm() {
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState<Empleado | null>(null);
   const [loadingEmpleados, setLoadingEmpleados] = useState(true);
 
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo | null>(null);
-  const [loadingVehiculos, setLoadingVehiculos] = useState(false);
+  const [loadingVehiculo, setLoadingVehiculo] = useState(false);
 
   // Token de autenticación (se obtiene de las respuestas de API)
   const [authToken, setAuthToken] = useState<string>("");
@@ -79,6 +79,7 @@ export default function PosOperacionalForm() {
   const [fechaSalida, setFechaSalida] = useState("");
   const [kmInicial, setKmInicial] = useState("");
   const [kmFinal, setKmFinal] = useState("");
+  const [kmPlaceholder, setKmPlaceholder] = useState("0"); // Placeholder para los campos de KM
   const [observaciones, setObservaciones] = useState("");
 
   // Archivos
@@ -175,7 +176,7 @@ export default function PosOperacionalForm() {
 
     if (empleadoEncontrado) {
       // Auto-seleccionar el empleado
-      onChangeEmpleado(String(empleadoEncontrado.id));
+      setEmpleadoSeleccionado(empleadoEncontrado);
     } else {
       console.warn(
         `No se encontró empleado con nombre: "${nombreUsuarioTelegram}"`
@@ -183,66 +184,55 @@ export default function PosOperacionalForm() {
     }
   }, [nombreUsuarioTelegram, empleados, loadingUsuario, loadingEmpleados]);
 
-  // Cuando se selecciona un empleado, cargar sus vehículos
-  const onChangeEmpleado = async (empleadoId: string) => {
-    if (!empleadoId) {
-      setEmpleadoSeleccionado(null);
-      setVehiculos([]);
-      setVehiculoSel(null);
+  // 4. Cuando se tiene telegram_id, cargar el vehículo asignado
+  useEffect(() => {
+    if (!telegramId) {
+      console.log("❌ No hay telegram_id, no se puede cargar vehículo");
       return;
     }
 
-    const empleado = empleados.find((e) => e.id === parseInt(empleadoId));
-    if (!empleado) return;
+    if (loadingVehiculo) {
+      console.log("⏳ Ya se está cargando el vehículo, esperando...");
+      return;
+    }
 
-    setEmpleadoSeleccionado(empleado);
-    setVehiculoSel(null);
-    setLoadingVehiculos(true);
+    console.log("🚗 Iniciando carga de vehículo para telegram_id:", telegramId);
+    setLoadingVehiculo(true);
 
-    try {
-      const res = await fetch(`/api/vehiculos-por-contrato?contrato=${encodeURIComponent(empleado.contrato)}`);
-      const data = await res.json();
+    fetch(`/api/vehiculo-asignado?telegram_id=${encodeURIComponent(telegramId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("📦 Respuesta del API vehiculo-asignado:", data);
 
-      if (data?.vehiculos) {
-        setVehiculos(data.vehiculos);
-        // Auto-seleccionar primer vehículo si existe
-        if (data.vehiculos.length > 0) {
-          const primerVehiculo = data.vehiculos[0];
-          setVehiculoSel(primerVehiculo);
-          if (primerVehiculo.ultimo_odometro) {
-            setKmInicial(String(primerVehiculo.ultimo_odometro));
-            setKmFinal(String(primerVehiculo.ultimo_odometro));
+        if (data?.vehiculo) {
+          console.log("✅ Vehículo encontrado:", data.vehiculo);
+          setVehiculoSel(data.vehiculo);
+          // Usar el último odómetro solo como placeholder (no auto-llenar)
+          if (data.vehiculo.ultimo_odometro) {
+            setKmPlaceholder(String(data.vehiculo.ultimo_odometro));
+            console.log("📊 Odómetro configurado:", data.vehiculo.ultimo_odometro);
           }
+        } else if (data?.error) {
+          console.error("❌ Error obteniendo vehículo asignado:", data.error);
+          alert(`No se pudo cargar el vehículo: ${data.error}`);
         }
-      }
-      // Actualizar token si viene uno nuevo
-      if (data?.token) {
-        setAuthToken(data.token);
-      }
-    } catch (err) {
-      console.error("Error cargando vehículos:", err);
-      setVehiculos([]);
-    } finally {
-      setLoadingVehiculos(false);
-    }
-  };
 
-  // Cambiar vehículo
-  const onChangeVehiculo = (vehiculoId: string) => {
-    if (!vehiculoId) {
-      setVehiculoSel(null);
-      return;
-    }
+        // Actualizar token si viene uno nuevo
+        if (data?.token) {
+          setAuthToken(data.token);
+          console.log("🔑 Token actualizado");
+        }
+      })
+      .catch((err) => {
+        console.error("❌ Error cargando vehículo asignado:", err);
+        alert("Error al cargar el vehículo asignado. Por favor recarga la página.");
+      })
+      .finally(() => {
+        setLoadingVehiculo(false);
+        console.log("✅ Finalizada carga de vehículo");
+      });
+  }, [telegramId]);
 
-    const vehiculo = vehiculos.find((v) => v.id === parseInt(vehiculoId));
-    if (vehiculo) {
-      setVehiculoSel(vehiculo);
-      if (vehiculo.ultimo_odometro) {
-        setKmInicial(String(vehiculo.ultimo_odometro));
-        setKmFinal(String(vehiculo.ultimo_odometro));
-      }
-    }
-  };
 
   const getFileNames = (files: FileList | null) => {
     if (!files || files.length === 0) return "Ningún archivo seleccionado";
@@ -269,22 +259,44 @@ export default function PosOperacionalForm() {
       return;
     }
 
+    // Validar que la fecha de entrada no sea mayor que la de salida
+    const entrada = new Date(fechaEntrada);
+    const salida = new Date(fechaSalida);
+
+    if (entrada > salida) {
+      alert("La fecha de entrada no puede ser mayor que la fecha de salida");
+      return;
+    }
+
     if (!authToken) {
       alert("Token de autenticación no disponible. Recarga la página.");
       return;
     }
 
     // Formatear fechas al formato requerido por Odoo: "YYYY-MM-DD HH:MM:SS"
-    // Sin conversión de timezone - usa exactamente lo que el usuario ingresó
+    // Sumar 5 horas para compensar la diferencia de zona horaria
     const formatDateTime = (isoString: string) => {
       if (!isoString) return "";
 
-      // Parsear directamente sin crear objeto Date
+      // Parsear la fecha y hora ingresada por el usuario
       const [date, time] = isoString.split("T");
       const timeFormatted = time || "00:00";
 
-      // Retornar directamente el string en formato Odoo
-      return `${date} ${timeFormatted}:00`;
+      // Crear objeto Date con la fecha y hora ingresada
+      const dateTime = new Date(`${date}T${timeFormatted}:00`);
+
+      // Sumar 5 horas (5 * 60 * 60 * 1000 milisegundos)
+      dateTime.setTime(dateTime.getTime() + (5 * 60 * 60 * 1000));
+
+      // Formatear al formato de Odoo: YYYY-MM-DD HH:MM:SS
+      const year = dateTime.getFullYear();
+      const month = String(dateTime.getMonth() + 1).padStart(2, '0');
+      const day = String(dateTime.getDate()).padStart(2, '0');
+      const hours = String(dateTime.getHours()).padStart(2, '0');
+      const minutes = String(dateTime.getMinutes()).padStart(2, '0');
+      const seconds = String(dateTime.getSeconds()).padStart(2, '0');
+
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     };
 
     // Calcular km recorridos
@@ -394,29 +406,25 @@ export default function PosOperacionalForm() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm">Empleado</label>
-              <select
-                className="w-full h-10 rounded-md border px-3 text-sm bg-white"
-                value={empleadoSeleccionado?.id || ""}
-                onChange={(e) => onChangeEmpleado(e.target.value)}
-                disabled={loadingEmpleados || loadingUsuario || !nombreUsuarioTelegram}
-              >
-                <option value="">
-                  {loadingUsuario
-                    ? "Validando usuario..."
-                    : loadingEmpleados
-                    ? "Cargando empleados..."
-                    : !nombreUsuarioTelegram
-                    ? "Usuario no autorizado"
-                    : empleadoSeleccionado
-                    ? empleadoSeleccionado.nombre
-                    : "Selecciona un empleado"}
-                </option>
-                {empleados.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.nombre}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <Input
+                  value={
+                    loadingUsuario
+                      ? "Validando usuario..."
+                      : loadingEmpleados
+                      ? "Cargando empleados..."
+                      : !nombreUsuarioTelegram
+                      ? "Usuario no autorizado"
+                      : empleadoSeleccionado
+                      ? empleadoSeleccionado.nombre
+                      : "No se encontró empleado"
+                  }
+                  readOnly
+                  placeholder="Se auto-llenará con tu usuario de Telegram"
+                  className="pr-9 bg-slate-50"
+                />
+                <User className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
               {nombreUsuarioTelegram && empleadoSeleccionado && (
                 <p className="text-xs text-green-600 mt-1">✓ Usuario validado: {nombreUsuarioTelegram}</p>
               )}
@@ -442,27 +450,27 @@ export default function PosOperacionalForm() {
         <SectionCard title="Información del Vehículo" icon={Truck} tone="bg-emerald-50">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm">Vehículo / Nº Interno</label>
-              <select
-                className="w-full h-10 rounded-md border px-3 text-sm bg-white"
-                value={vehiculoSel?.id || ""}
-                onChange={(e) => onChangeVehiculo(e.target.value)}
-                disabled={loadingVehiculos || vehiculos.length === 0}
-              >
-                <option value="">
-                  {loadingVehiculos
-                    ? "Cargando vehículos..."
-                    : vehiculos.length === 0
-                    ? "No hay vehículos disponibles"
-                    : "Selecciona un vehículo"}
-                </option>
-                {vehiculos.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    Nº {v.numero_interno} — {v.nombre} — {v.matricula}
-                    {v.ultimo_odometro ? ` (odómetro: ${v.ultimo_odometro} km)` : ""}
-                  </option>
-                ))}
-              </select>
+              <label className="mb-1 block text-sm">Vehículo Asignado</label>
+              <div className="relative">
+                <Input
+                  value={
+                    loadingVehiculo
+                      ? "Cargando vehículo asignado..."
+                      : vehiculoSel
+                      ? `Nº ${vehiculoSel.numero_interno} — ${vehiculoSel.nombre.split('/').slice(0, 2).join('/')}/${vehiculoSel.matricula} — ${vehiculoSel.matricula} (odómetro: ${vehiculoSel.ultimo_odometro} km)`
+                      : "No hay vehículo asignado"
+                  }
+                  readOnly
+                  placeholder="Se auto-llenará con el vehículo asignado"
+                  className="pr-9 bg-slate-50"
+                />
+                <Truck className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              {vehiculoSel && vehiculoSel.ultimo_odometro && (
+                <p className="text-xs text-emerald-600 mt-1">
+                  ✓ Último odómetro registrado: {vehiculoSel.ultimo_odometro} km
+                </p>
+              )}
             </div>
 
             <div>
@@ -470,7 +478,7 @@ export default function PosOperacionalForm() {
               <Input
                 value={kmInicial}
                 onChange={(e) => setKmInicial(e.target.value)}
-                placeholder="0"
+                placeholder={kmPlaceholder}
                 type="number"
               />
             </div>
@@ -480,7 +488,7 @@ export default function PosOperacionalForm() {
               <Input
                 value={kmFinal}
                 onChange={(e) => setKmFinal(e.target.value)}
-                placeholder="0"
+                placeholder={kmPlaceholder}
                 type="number"
               />
             </div>
@@ -498,56 +506,81 @@ export default function PosOperacionalForm() {
 
         {/* Fechas y Horarios */}
         <SectionCard title="Fechas y Horarios" icon={Calendar} tone="bg-fuchsia-50">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
             <div>
-              <div className="mb-1 flex items-center gap-2 text-sm font-medium">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <LogIn className="h-4 w-4" />
                 Entrada
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input
-                  type="date"
-                  value={fechaEntrada.split("T")[0] || ""}
-                  onChange={(e) =>
-                    setFechaEntrada(e.target.value ? `${e.target.value}T${fechaEntrada.split("T")[1] || ""}` : "")
-                  }
-                />
-                <Input
-                  type="time"
-                  value={fechaEntrada.split("T")[1] || ""}
-                  onChange={(e) =>
-                    setFechaEntrada(
-                      fechaEntrada.split("T")[0] ? `${fechaEntrada.split("T")[0]}T${e.target.value}` : `T${e.target.value}`
-                    )
-                  }
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative min-w-0">
+                  <Calendar className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                  <Input
+                    type="date"
+                    value={fechaEntrada.split("T")[0] || ""}
+                    onChange={(e) =>
+                      setFechaEntrada(e.target.value ? `${e.target.value}T${fechaEntrada.split("T")[1] || ""}` : "")
+                    }
+                    className="pl-8 pr-1 text-xs h-9 min-w-0"
+                  />
+                </div>
+                <div className="relative min-w-0">
+                  <Clock className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                  <Input
+                    type="time"
+                    value={fechaEntrada.split("T")[1] || ""}
+                    onChange={(e) =>
+                      setFechaEntrada(
+                        fechaEntrada.split("T")[0] ? `${fechaEntrada.split("T")[0]}T${e.target.value}` : `T${e.target.value}`
+                      )
+                    }
+                    className="pl-8 pr-1 text-xs h-9 min-w-0"
+                  />
+                </div>
               </div>
             </div>
             <div>
-              <div className="mb-1 flex items-center gap-2 text-sm font-medium">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <LogOut className="h-4 w-4" />
                 Salida
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input
-                  type="date"
-                  value={fechaSalida.split("T")[0] || ""}
-                  onChange={(e) =>
-                    setFechaSalida(e.target.value ? `${e.target.value}T${fechaSalida.split("T")[1] || ""}` : "")
-                  }
-                />
-                <Input
-                  type="time"
-                  value={fechaSalida.split("T")[1] || ""}
-                  onChange={(e) =>
-                    setFechaSalida(
-                      fechaSalida.split("T")[0] ? `${fechaSalida.split("T")[0]}T${e.target.value}` : `T${e.target.value}`
-                    )
-                  }
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative min-w-0">
+                  <Calendar className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                  <Input
+                    type="date"
+                    value={fechaSalida.split("T")[0] || ""}
+                    onChange={(e) =>
+                      setFechaSalida(e.target.value ? `${e.target.value}T${fechaSalida.split("T")[1] || ""}` : "")
+                    }
+                    className="pl-8 pr-1 text-xs h-9 min-w-0"
+                  />
+                </div>
+                <div className="relative min-w-0">
+                  <Clock className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                  <Input
+                    type="time"
+                    value={fechaSalida.split("T")[1] || ""}
+                    onChange={(e) =>
+                      setFechaSalida(
+                        fechaSalida.split("T")[0] ? `${fechaSalida.split("T")[0]}T${e.target.value}` : `T${e.target.value}`
+                      )
+                    }
+                    className="pl-8 pr-1 text-xs h-9 min-w-0"
+                  />
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Validación visual de fechas */}
+          {fechaEntrada && fechaSalida && new Date(fechaEntrada) > new Date(fechaSalida) && (
+            <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3">
+              <p className="text-sm text-red-800">
+                ⚠️ La fecha de entrada no puede ser mayor que la fecha de salida
+              </p>
+            </div>
+          )}
         </SectionCard>
 
         {/* Servicios y Verificaciones */}
