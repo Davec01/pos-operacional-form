@@ -1,5 +1,5 @@
 # Dockerfile para Next.js 16.1.2 con React 19
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Instalar dependencias solo cuando sea necesario
 FROM base AS deps
