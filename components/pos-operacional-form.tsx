@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRef, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { Calendar, Clock, FileText, Fuel, HandCoins, Info, LogIn, LogOut, Truck, User } from "lucide-react";
+import { AlertTriangle, Calendar, Clock, FileText, Fuel, HandCoins, Info, LogIn, LogOut, ShieldX, Truck, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,6 +74,10 @@ export default function PosOperacionalForm() {
   const [nombreUsuarioTelegram, setNombreUsuarioTelegram] = useState<string>("");
   const [loadingUsuario, setLoadingUsuario] = useState(true);
 
+  // Estado de autorización del usuario
+  const [usuarioAutorizado, setUsuarioAutorizado] = useState<boolean | null>(null); // null = cargando, true = autorizado, false = no autorizado
+  const [errorAutorizacion, setErrorAutorizacion] = useState<string>("");
+
   // Form
   const [fechaEntrada, setFechaEntrada] = useState("");
   const [fechaSalida, setFechaSalida] = useState("");
@@ -113,27 +117,44 @@ export default function PosOperacionalForm() {
   const [totalFacturaPeajes, setTotalFacturaPeajes] = useState("");
   const [totalFacturaOtros, setTotalFacturaOtros] = useState("");
 
-  // 1. Cargar usuario de Telegram por telegram_id
+  // 1. Cargar y validar usuario de Telegram por telegram_id
   useEffect(() => {
     if (!telegramId) {
       setLoadingUsuario(false);
+      setUsuarioAutorizado(false);
+      setErrorAutorizacion("No se proporcionó un ID de Telegram válido");
       return;
     }
 
     setLoadingUsuario(true);
+    setUsuarioAutorizado(null); // Estado de carga
+
     fetch(`/api/usuario?telegram_id=${encodeURIComponent(telegramId)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.nombre) {
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (res.ok && data?.nombre) {
+          // Usuario encontrado y autorizado
           setNombreUsuarioTelegram(data.nombre);
-        } else if (data?.error) {
-          console.error("Error validando usuario:", data.error);
-          alert(`Error: ${data.error}`);
+          setUsuarioAutorizado(true);
+          setErrorAutorizacion("");
+          console.log("✅ Usuario autorizado:", data.nombre);
+        } else if (res.status === 404) {
+          // Usuario no encontrado en el sistema
+          setUsuarioAutorizado(false);
+          setErrorAutorizacion("No estás registrado como empleado en el sistema. Contacta al administrador.");
+          console.log("❌ Usuario NO autorizado - No encontrado en empleados");
+        } else {
+          // Otro error
+          setUsuarioAutorizado(false);
+          setErrorAutorizacion(data?.error || "Error al validar usuario");
+          console.error("❌ Error validando usuario:", data?.error);
         }
       })
       .catch((err) => {
-        console.error("Error cargando usuario:", err);
-        alert("Error al validar usuario de Telegram");
+        console.error("❌ Error de conexión:", err);
+        setUsuarioAutorizado(false);
+        setErrorAutorizacion("Error de conexión. Intenta nuevamente.");
       })
       .finally(() => setLoadingUsuario(false));
   }, [telegramId]);
@@ -365,6 +386,63 @@ export default function PosOperacionalForm() {
     }
   };
 
+  // Pantalla de carga mientras se valida el usuario
+  if (loadingUsuario) {
+    return (
+      <div className="min-h-screen bg-sky-100 py-8 flex flex-col items-center justify-center">
+        <Image src="/viacotur 3.png" width={220} height={60} alt="VIACOTUR S.A." priority />
+        <div className="mt-8 rounded-2xl border border-sky-200 bg-white shadow-lg p-8 max-w-md w-full mx-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
+            <h2 className="text-lg font-semibold text-sky-900">Validando acceso...</h2>
+            <p className="text-sm text-slate-600 text-center">
+              Verificando que estés registrado como empleado en el sistema
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Pantalla de acceso denegado si el usuario no está autorizado
+  if (usuarioAutorizado === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-red-50 to-red-100 py-8 flex flex-col items-center justify-center">
+        <Image src="/viacotur 3.png" width={220} height={60} alt="VIACOTUR S.A." priority />
+        <div className="mt-8 rounded-2xl border border-red-300 bg-white shadow-lg p-8 max-w-md w-full mx-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="rounded-full bg-red-100 p-4">
+              <ShieldX className="h-12 w-12 text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-red-800">Acceso Denegado</h2>
+            <div className="text-center space-y-2">
+              <p className="text-sm text-slate-700">
+                {errorAutorizacion || "No tienes permiso para acceder a este formulario."}
+              </p>
+              {telegramId && (
+                <p className="text-xs text-slate-500 bg-slate-100 rounded px-2 py-1">
+                  ID: {telegramId}
+                </p>
+              )}
+            </div>
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg w-full">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800">
+                  <p className="font-semibold">¿Crees que esto es un error?</p>
+                  <p className="mt-1">
+                    Contacta al administrador para verificar que tu código PIN de Telegram
+                    esté correctamente registrado en el sistema de empleados.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-sky-100 py-8">
       {/* Encabezado con logo */}
@@ -380,26 +458,6 @@ export default function PosOperacionalForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Validación de usuario de Telegram */}
-        {loadingUsuario && (
-          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-center">
-            <p className="text-sm text-blue-800">🔍 Validando usuario de Telegram...</p>
-          </div>
-        )}
-
-        {!loadingUsuario && !nombreUsuarioTelegram && telegramId && (
-          <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-center">
-            <p className="text-sm text-red-800">⚠️ Usuario no registrado en el sistema</p>
-            <p className="text-xs text-red-600 mt-1">Contacta al administrador para registrarte</p>
-          </div>
-        )}
-
-        {!telegramId && (
-          <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 text-center">
-            <p className="text-sm text-yellow-800">⚠️ Acceso solo desde Telegram</p>
-            <p className="text-xs text-yellow-600 mt-1">Este formulario debe abrirse desde el bot de Telegram</p>
-          </div>
-        )}
 
         {/* Información del Personal */}
         <SectionCard title="Información del Personal" icon={User} tone="bg-blue-50">
