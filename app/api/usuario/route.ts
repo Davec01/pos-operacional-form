@@ -32,35 +32,21 @@ export async function GET(req: NextRequest) {
 
     const data = await response.json();
 
-    // Buscar empleado por codigo_pin que coincida con telegram_id
+    // Buscar empleado por codigo_pin Y puesto_trabajo = "Conductor"
+    // Esto filtra duplicados y solo trae al conductor con ese codigo_pin
     const empleado = data.items.find(
-      (emp: any) => emp.codigo_pin === telegramId
+      (emp: any) => emp.codigo_pin === telegramId && emp.puesto_trabajo === "Conductor"
     );
 
     if (!empleado) {
-      console.log("❌ [usuario] No se encontró empleado con codigo_pin:", telegramId);
+      console.log("❌ [usuario] No se encontró Conductor con codigo_pin:", telegramId);
       return NextResponse.json(
-        { error: "Usuario no registrado en el sistema" },
+        { error: "No se encontró un Conductor registrado con este código" },
         { status: 404 }
       );
     }
 
-    // Verificar que el empleado sea Conductor
-    if (empleado.puesto_trabajo !== "Conductor") {
-      console.log("❌ [usuario] Empleado encontrado pero no es Conductor:", {
-        nombre: empleado.nombre,
-        puesto_trabajo: empleado.puesto_trabajo
-      });
-      return NextResponse.json(
-        {
-          error: "Acceso solo para Conductores",
-          detalle: `Tu puesto de trabajo es "${empleado.puesto_trabajo || 'No asignado'}". Este formulario es exclusivo para Conductores.`
-        },
-        { status: 403 }
-      );
-    }
-
-    console.log("✅ [usuario] Conductor autorizado:", empleado.nombre);
+    console.log("✅ [usuario] Conductor encontrado:", empleado.nombre);
 
     return NextResponse.json({
       nombre: empleado.nombre,

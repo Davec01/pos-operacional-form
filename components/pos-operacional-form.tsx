@@ -134,21 +134,16 @@ export default function PosOperacionalForm() {
         const data = await res.json();
 
         if (res.ok && data?.nombre) {
-          // Usuario encontrado y autorizado (es Conductor)
+          // Conductor encontrado y autorizado
           setNombreUsuarioTelegram(data.nombre);
           setUsuarioAutorizado(true);
           setErrorAutorizacion("");
           console.log("✅ Conductor autorizado:", data.nombre);
         } else if (res.status === 404) {
-          // Usuario no encontrado en el sistema
+          // No se encontró un Conductor con ese codigo_pin
           setUsuarioAutorizado(false);
-          setErrorAutorizacion("No estás registrado como empleado en el sistema. Contacta al administrador.");
-          console.log("❌ Usuario NO autorizado - No encontrado en empleados");
-        } else if (res.status === 403) {
-          // Usuario encontrado pero NO es Conductor
-          setUsuarioAutorizado(false);
-          setErrorAutorizacion(data?.detalle || data?.error || "Este formulario es exclusivo para Conductores.");
-          console.log("❌ Usuario NO autorizado - No es Conductor");
+          setErrorAutorizacion("No se encontró un Conductor registrado con este código. Contacta al administrador.");
+          console.log("❌ No se encontró Conductor con este codigo_pin");
         } else {
           // Otro error
           setUsuarioAutorizado(false);
