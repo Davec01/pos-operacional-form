@@ -38,17 +38,36 @@ export async function GET(req: NextRequest) {
     );
 
     if (!empleado) {
+      console.log("❌ [usuario] No se encontró empleado con codigo_pin:", telegramId);
       return NextResponse.json(
         { error: "Usuario no registrado en el sistema" },
         { status: 404 }
       );
     }
 
+    // Verificar que el empleado sea Conductor
+    if (empleado.puesto_trabajo !== "Conductor") {
+      console.log("❌ [usuario] Empleado encontrado pero no es Conductor:", {
+        nombre: empleado.nombre,
+        puesto_trabajo: empleado.puesto_trabajo
+      });
+      return NextResponse.json(
+        {
+          error: "Acceso solo para Conductores",
+          detalle: `Tu puesto de trabajo es "${empleado.puesto_trabajo || 'No asignado'}". Este formulario es exclusivo para Conductores.`
+        },
+        { status: 403 }
+      );
+    }
+
+    console.log("✅ [usuario] Conductor autorizado:", empleado.nombre);
+
     return NextResponse.json({
       nombre: empleado.nombre,
       documento: empleado.identificacion,
       telegram_id: telegramId,
       empleado_id: empleado.id,
+      puesto_trabajo: empleado.puesto_trabajo,
     });
   } catch (error: any) {
     console.error("❌ Error consultando usuario:", error);
