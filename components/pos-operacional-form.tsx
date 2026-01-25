@@ -78,6 +78,9 @@ export default function PosOperacionalForm() {
   const [usuarioAutorizado, setUsuarioAutorizado] = useState<boolean | null>(null); // null = cargando, true = autorizado, false = no autorizado
   const [errorAutorizacion, setErrorAutorizacion] = useState<string>("");
 
+  // Estado de envío del formulario
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Form
   const [fechaEntrada, setFechaEntrada] = useState("");
   const [fechaSalida, setFechaSalida] = useState("");
@@ -264,6 +267,12 @@ export default function PosOperacionalForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevenir múltiples envíos
+    if (isSubmitting) {
+      console.log("⚠️ Formulario ya está siendo enviado, ignorando click");
+      return;
+    }
+
     // Validaciones básicas
     if (!empleadoSeleccionado) {
       alert("Por favor selecciona un empleado");
@@ -364,6 +373,9 @@ export default function PosOperacionalForm() {
       attachment_filename: planillaFile?.name || false,
     };
 
+    // Bloquear el botón de envío
+    setIsSubmitting(true);
+
     try {
       const res = await fetch("/api/guardar-posoperacional", {
         method: "POST",
@@ -383,6 +395,9 @@ export default function PosOperacionalForm() {
     } catch (error) {
       console.error("Error en submit:", error);
       alert("Error al enviar el formulario");
+    } finally {
+      // Siempre desbloquear el botón (excepto si se recarga la página)
+      setIsSubmitting(false);
     }
   };
 
@@ -834,8 +849,19 @@ export default function PosOperacionalForm() {
 
         {/* Enviar */}
         <div className="flex justify-center pt-2">
-          <Button type="submit" className="px-10">
-            ENVIAR
+          <Button
+            type="submit"
+            className="px-10"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                ENVIANDO...
+              </span>
+            ) : (
+              "ENVIAR"
+            )}
           </Button>
         </div>
       </form>
