@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
       attachment_filename: data.attachment_filename || false,
     };
 
-    // Hacer POST a Odoo con el token
+    // Hacer POST a Odoo Producción
     const response = await fetch(
-      "https://viacotur16-qa11-22388022.dev.odoo.com/api/posoperacional/register",
+      "https://www.viacotur.com/api/posoperacional/register",
       {
         method: "POST",
         headers: {
