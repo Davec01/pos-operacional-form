@@ -15,10 +15,12 @@ export async function GET(req: NextRequest) {
 
   try {
     // Consultar el endpoint de empleados
+    const basicAuth = Buffer.from("Vi4c0:P@ssw0rd").toString("base64");
     const response = await fetch("http://35.223.72.198:4001/empleados", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Basic ${basicAuth}`,
       },
       cache: "no-store",
     });

@@ -258,10 +258,19 @@ export default function PosOperacionalForm() {
   }, [telegramId]);
 
 
-  const getFileNames = (files: FileList | null) => {
-    if (!files || files.length === 0) return "Ningún archivo seleccionado";
-    if (files.length === 1) return files[0].name;
-    return `${files.length} archivos seleccionados`;
+  // Función para convertir archivo a base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        // Extraer solo el contenido base64 sin el prefijo "data:application/pdf;base64,"
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -334,6 +343,19 @@ export default function PosOperacionalForm() {
     const kmEnd = kmFinal ? parseFloat(kmFinal) : 0;
     const kmTraveled = kmEnd - kmStart;
 
+    // Convertir PDF a base64 si existe
+    let pdfBase64: string | false = false;
+    if (planillaFile) {
+      try {
+        pdfBase64 = await fileToBase64(planillaFile);
+      } catch (error) {
+        console.error("Error al convertir PDF a base64:", error);
+        alert("Error al procesar el archivo PDF");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     // Preparar body en formato Odoo
     const body = {
       token: authToken,
@@ -351,7 +373,7 @@ export default function PosOperacionalForm() {
       cost_id: observaciones || "",
 
       fuel_type: tipoCombustible || "diesel",
-      fuel: showFuelSection,
+      fuel: false, // booleano, no PDF
       fuel_value: showFuelSection && totalFacturasCombustible ? parseFloat(totalFacturasCombustible) : 0,
       fuel_expenses: showFuelSection && tanqueoGastos,
       km_fuel: showFuelSection && kmFinalCombustible ? parseFloat(kmFinalCombustible) : kmEnd,
@@ -369,7 +391,9 @@ export default function PosOperacionalForm() {
       observations: observaciones || "",
       notes: observaciones || "",
 
-      attachment: !!planillaFile,
+      // Archivo adjunto (PDF o imagen) - Odoo solo acepta 'pdf' como type_file
+      type_file: planillaFile ? "pdf" : false,
+      attachment: pdfBase64,
       attachment_filename: planillaFile?.name || false,
     };
 
@@ -836,6 +860,33 @@ export default function PosOperacionalForm() {
             {/* )} */}
           {/* </div> */}
         {/* </SectionCard> */}
+
+        {/* Planilla de Servicios (PDF o Imagen) */}
+        <SectionCard title="Planilla de Servicios" icon={FileText} tone="bg-amber-50">
+          <div>
+            <label className="mb-1 block text-sm">Cargar Planilla (PDF o Imagen)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept=".pdf,application/pdf,image/*,.jpg,.jpeg,.png,.gif,.webp"
+                ref={planillaInputRef}
+                onChange={(e) => setPlanillaFile(e.target.files?.[0] || null)}
+                className="hidden"
+              />
+              <Button type="button" variant="outline" onClick={() => planillaInputRef.current?.click()}>
+                Seleccionar archivo
+              </Button>
+              <div className="flex-1 truncate rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                {planillaFile ? planillaFile.name : "Ningún archivo seleccionado"}
+              </div>
+            </div>
+            {planillaFile && (
+              <p className="text-xs text-green-600 mt-2">
+                Archivo seleccionado: {planillaFile.name} ({(planillaFile.size / 1024).toFixed(1)} KB)
+              </p>
+            )}
+          </div>
+        </SectionCard>
 
         {/* Observaciones */}
         <SectionCard title="Observaciones" icon={Info} tone="bg-sky-100">

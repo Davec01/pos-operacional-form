@@ -56,10 +56,12 @@ export async function GET(request: NextRequest) {
 
     // Ahora buscar en el endpoint /flota para obtener detalles completos
     console.log("🌐 [vehiculo-asignado] Consultando endpoint de flota...");
+    const basicAuth = Buffer.from("Vi4c0:P@ssw0rd").toString("base64");
     const flotaResponse = await fetch("http://35.223.72.198:4001/flota", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Basic ${basicAuth}`,
       },
     });
 

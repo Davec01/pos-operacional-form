@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
       observations: data.observations || "",
       notes: data.notes || "",
 
+      // Archivo adjunto (PDF o imagen)
+      type_file: data.type_file || false,
       attachment: data.attachment || false,
       attachment_filename: data.attachment_filename || false,
     };
@@ -57,6 +59,8 @@ export async function POST(req: NextRequest) {
     // Hacer POST a Odoo Producción
     const response = await fetch(
       "https://www.viacotur.com/api/posoperacional/register",
+      // "https://viacotur16-qa13-28046660.dev.odoo.com/api/posoperacional/register",
+
       {
         method: "POST",
         headers: {
