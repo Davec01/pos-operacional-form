@@ -391,8 +391,7 @@ export default function PosOperacionalForm() {
       observations: observaciones || "",
       notes: observaciones || "",
 
-      // Archivo adjunto (PDF o imagen) - Odoo solo acepta 'pdf' como type_file
-      type_file: planillaFile ? "pdf" : false,
+      // Archivo adjunto (PDF o imagen)
       attachment: pdfBase64,
       attachment_filename: planillaFile?.name || false,
     };

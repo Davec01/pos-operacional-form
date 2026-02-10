@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         id: emp.id,
         nombre: emp.nombre,
         contrato: emp.contrato,
-        agreement_id: emp.agreement_id || null, // ID del contrato en Odoo
+        agreement_id: emp.id_contract || null, // ID del contrato en Odoo
         puesto_trabajo: emp.puesto_trabajo,
         telefono_movil_laboral: emp.telefono_movil_laboral,
       }))

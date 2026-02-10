@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
       notes: data.notes || "",
 
       // Archivo adjunto (PDF o imagen)
-      type_file: data.type_file || false,
       attachment: data.attachment || false,
       attachment_filename: data.attachment_filename || false,
     };
