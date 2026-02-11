@@ -1,6 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Client } from "@elastic/elasticsearch";
 
 export const dynamic = "force-dynamic";
+
+// Configurar cliente de Elasticsearch
+const esClient = new Client({
+  node: process.env.ELASTICSEARCH_URL!,
+  auth: {
+    apiKey: process.env.ELASTICSEARCH_API_KEY!,
+  },
+});
+
+// Función para crear el índice con mapping de keywords
+async function createIndexIfNotExists() {
+  const indexName = process.env.ELASTICSEARCH_INDEX || "pos_operacional";
+
+  try {
+    const exists = await esClient.indices.exists({ index: indexName });
+
+    if (!exists) {
+      await esClient.indices.create({
+        index: indexName,
+        body: {
+          mappings: {
+            properties: {
+              // Campos de texto
+              state: { type: "keyword" },
+              cost_id: { type: "keyword" },
+              fuel_type: { type: "keyword" },
+              observations: { type: "keyword" },
+              notes: { type: "keyword" },
+              attachment_filename: { type: "keyword" },
+              odoo_response: { type: "keyword" },
+
+              // Campos numéricos
+              company_id: { type: "integer" },
+              employee_id: { type: "integer" },
+              agreement_id: { type: "integer" },
+              vehicle_id: { type: "integer" },
+              lunch_hour: { type: "float" },
+              km_start: { type: "float" },
+              km_end: { type: "float" },
+              km_traveled: { type: "float" },
+              fuel_value: { type: "float" },
+              km_fuel: { type: "float" },
+              gallons: { type: "float" },
+              feeding_value: { type: "float" },
+              lodging_value: { type: "float" },
+              tolls_value: { type: "float" },
+              others_value: { type: "float" },
+
+              // Campos booleanos
+              fuel: { type: "boolean" },
+              fuel_expenses: { type: "boolean" },
+              feeding: { type: "boolean" },
+              lodging: { type: "boolean" },
+              tolls: { type: "boolean" },
+              others: { type: "boolean" },
+              has_attachment: { type: "boolean" },
+
+              // Fechas
+              entrada: { type: "date", format: "yyyy-MM-dd HH:mm:ss" },
+              salida: { type: "date", format: "yyyy-MM-dd HH:mm:ss" },
+              timestamp: { type: "date" },
+            },
+          },
+        },
+      });
+      console.log(`✅ Índice '${indexName}' creado con mapping de keywords`);
+    }
+  } catch (error) {
+    console.error("⚠️ Error al crear índice de Elasticsearch:", error);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -80,6 +152,32 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await response.json();
+
+    // Enviar los mismos datos a Elasticsearch (sin el attachment que es muy grande)
+    try {
+      // Crear índice si no existe (con mapping de keywords)
+      await createIndexIfNotExists();
+
+      // Preparar documento sin el attachment (demasiado grande para keyword)
+      const { attachment, check_in, check_out, ...docWithoutAttachment } = odooBody;
+
+      // Insertar documento con timestamp y nombres de campos renombrados
+      await esClient.index({
+        index: process.env.ELASTICSEARCH_INDEX || "pos_operacional",
+        document: {
+          ...docWithoutAttachment,
+          entrada: check_in, // Renombrar check_in a entrada
+          salida: check_out, // Renombrar check_out a salida
+          timestamp: new Date().toISOString(), // Timestamp solo para Elasticsearch
+          odoo_response: JSON.stringify(result),
+          has_attachment: !!attachment, // Solo guardamos si tiene attachment o no
+        },
+      });
+      console.log("✅ Datos guardados en Elasticsearch");
+    } catch (esError) {
+      console.error("⚠️ Error al guardar en Elasticsearch (no crítico):", esError);
+      // No fallar la petición si Elasticsearch falla
+    }
 
     return NextResponse.json({
       success: true,
