@@ -3,16 +3,25 @@ import { Client } from "@elastic/elasticsearch";
 
 export const dynamic = "force-dynamic";
 
-// Configurar cliente de Elasticsearch
-const esClient = new Client({
-  node: process.env.ELASTICSEARCH_URL!,
-  auth: {
-    apiKey: process.env.ELASTICSEARCH_API_KEY!,
-  },
-});
+// Función para obtener el cliente de Elasticsearch (lazy initialization)
+function getEsClient() {
+  if (!process.env.ELASTICSEARCH_URL || !process.env.ELASTICSEARCH_API_KEY) {
+    return null;
+  }
+
+  return new Client({
+    node: process.env.ELASTICSEARCH_URL,
+    auth: {
+      apiKey: process.env.ELASTICSEARCH_API_KEY,
+    },
+  });
+}
 
 // Función para crear el índice con mapping de keywords
 async function createIndexIfNotExists() {
+  const esClient = getEsClient();
+  if (!esClient) return;
+
   const indexName = process.env.ELASTICSEARCH_INDEX || "pos_operacional";
 
   try {
@@ -155,6 +164,15 @@ export async function POST(req: NextRequest) {
 
     // Enviar los mismos datos a Elasticsearch (sin el attachment que es muy grande)
     try {
+      const esClient = getEsClient();
+      if (!esClient) {
+        console.log("⚠️ Elasticsearch no configurado, saltando indexación");
+        return NextResponse.json({
+          success: true,
+          data: result,
+        });
+      }
+
       // Crear índice si no existe (con mapping de keywords)
       await createIndexIfNotExists();
 
