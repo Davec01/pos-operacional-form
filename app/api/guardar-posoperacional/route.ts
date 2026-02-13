@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "@elastic/elasticsearch";
+import { Pool } from "pg";
 
 export const dynamic = "force-dynamic";
+
+// Configuración de PostgreSQL
+const DB_CONFIG = {
+  host: "34.174.97.159",
+  port: 5432,
+  database: "viacotur",
+  user: "viacotur",
+  password: "viacotur_pass",
+};
+
+// Pool de conexiones de PostgreSQL (lazy initialization)
+let pgPool: Pool | null = null;
+
+function getPgPool() {
+  if (!pgPool) {
+    pgPool = new Pool(DB_CONFIG);
+  }
+  return pgPool;
+}
 
 // Función para obtener el cliente de Elasticsearch (lazy initialization)
 function getEsClient() {
@@ -15,6 +35,66 @@ function getEsClient() {
       apiKey: process.env.ELASTICSEARCH_API_KEY,
     },
   });
+}
+
+// Función para guardar en PostgreSQL
+async function saveToPostgres(data: any) {
+  const pool = getPgPool();
+
+  try {
+    const query = `
+      INSERT INTO pos_operacional (
+        state, company_id, employee_id, check_in, check_out, agreement_id,
+        vehicle_id, lunch_hour, km_start, km_end, km_traveled, cost_id,
+        fuel_type, fuel, fuel_value, fuel_expenses, km_fuel, gallons,
+        feeding_value, feeding, lodging_value, lodging, tolls_value, tolls,
+        others_value, others, observations, notes, attachment, attachment_filename
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
+      ) RETURNING id
+    `;
+
+    const values = [
+      data.state,
+      data.company_id,
+      data.employee_id,
+      data.check_in,
+      data.check_out,
+      data.agreement_id,
+      data.vehicle_id,
+      data.lunch_hour,
+      data.km_start,
+      data.km_end,
+      data.km_traveled,
+      data.cost_id,
+      data.fuel_type,
+      data.fuel,
+      data.fuel_value,
+      data.fuel_expenses,
+      data.km_fuel,
+      data.gallons,
+      data.feeding_value,
+      data.feeding,
+      data.lodging_value,
+      data.lodging,
+      data.tolls_value,
+      data.tolls,
+      data.others_value,
+      data.others,
+      data.observations,
+      data.notes,
+      data.attachment || null,
+      data.attachment_filename || null,
+    ];
+
+    const result = await pool.query(query, values);
+    console.log("✅ Datos guardados en PostgreSQL con ID:", result.rows[0]?.id);
+    return result.rows[0];
+  } catch (error) {
+    console.error("⚠️ Error al guardar en PostgreSQL:", error);
+    throw error;
+  }
 }
 
 // Función para crear el índice con mapping de keywords
@@ -138,8 +218,8 @@ export async function POST(req: NextRequest) {
 
     // Hacer POST a Odoo Producción
     const response = await fetch(
-      "https://www.viacotur.com/api/posoperacional/register",
-      // "https://viacotur16-qa13-28046660.dev.odoo.com/api/posoperacional/register",
+      // "https://www.viacotur.com/api/posoperacional/register",
+      "https://viacotur16-qa13-28046660.dev.odoo.com/api/posoperacional/register",
 
       {
         method: "POST",
@@ -161,6 +241,14 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await response.json();
+
+    // Guardar en PostgreSQL
+    try {
+      await saveToPostgres(odooBody);
+    } catch (pgError) {
+      console.error("⚠️ Error al guardar en PostgreSQL (no crítico):", pgError);
+      // No fallar la petición si PostgreSQL falla
+    }
 
     // Enviar los mismos datos a Elasticsearch (sin el attachment que es muy grande)
     try {
