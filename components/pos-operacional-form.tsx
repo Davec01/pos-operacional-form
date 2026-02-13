@@ -360,6 +360,7 @@ export default function PosOperacionalForm() {
     const body = {
       token: authToken,
       employee_id: empleadoSeleccionado.id,
+      conductor: empleadoSeleccionado.nombre,
       vehicle_id: vehiculoSel.id,
       agreement_id: empleadoSeleccionado.agreement_id || 36, // Usar agreement_id del empleado o valor por defecto
 

@@ -114,6 +114,7 @@ async function createIndexIfNotExists() {
           mappings: {
             properties: {
               // Campos de texto
+              conductor: { type: "keyword" },
               state: { type: "keyword" },
               cost_id: { type: "keyword" },
               fuel_type: { type: "keyword" },
@@ -272,6 +273,7 @@ export async function POST(req: NextRequest) {
         index: process.env.ELASTICSEARCH_INDEX || "pos_operacional",
         document: {
           ...docWithoutAttachment,
+          conductor: data.conductor || "", // Nombre del conductor
           entrada: check_in, // Renombrar check_in a entrada
           salida: check_out, // Renombrar check_out a salida
           timestamp: new Date().toISOString(), // Timestamp solo para Elasticsearch
