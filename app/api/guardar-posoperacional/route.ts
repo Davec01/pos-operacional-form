@@ -212,15 +212,18 @@ export async function POST(req: NextRequest) {
       observations: data.observations || "",
       notes: data.notes || "",
 
-      // Archivo adjunto (PDF o imagen)
+      // Archivo adjunto (PDF o JPG)
       attachment: data.attachment || false,
       attachment_filename: data.attachment_filename || false,
+      type_file: data.type_file === "application/pdf" ? "pdf"
+               : data.type_file === "image/jpeg" ? "jpg"
+               : false,
     };
 
     // Hacer POST a Odoo Producción
     const response = await fetch(
-      "https://www.viacotur.com/api/posoperacional/register",
-      // "https://viacotur16-qa13-28046660.dev.odoo.com/api/posoperacional/register",
+      // "https://www.viacotur.com/api/posoperacional/register",
+      "https://viacotur16-qa15-31954089.dev.odoo.com/api/posoperacional/register",
 
       {
         method: "POST",

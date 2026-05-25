@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 
+const ADMIN_PIN = "2039625899";
+
 export async function GET(req: NextRequest) {
   const telegramId = req.nextUrl.searchParams.get("telegram_id");
 
@@ -11,6 +13,19 @@ export async function GET(req: NextRequest) {
       { error: "telegram_id requerido" },
       { status: 400 }
     );
+  }
+
+  // Bypass para el administrador
+  if (telegramId === ADMIN_PIN) {
+    console.log("✅ [usuario] Acceso de administrador:", telegramId);
+    return NextResponse.json({
+      nombre: "Administrador",
+      documento: "000000000",
+      telegram_id: telegramId,
+      empleado_id: null,
+      puesto_trabajo: "Administrador",
+      is_admin: true,
+    });
   }
 
   try {

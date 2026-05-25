@@ -29,9 +29,10 @@ export async function GET(request: NextRequest) {
         id: emp.id,
         nombre: emp.nombre,
         contrato: emp.contrato,
-        agreement_id: emp.id_contract || null, // ID del contrato en Odoo
+        agreement_id: emp.id_contract || null,
         puesto_trabajo: emp.puesto_trabajo,
         telefono_movil_laboral: emp.telefono_movil_laboral,
+        codigo_pin: emp.codigo_pin || null,
       }))
       .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
 

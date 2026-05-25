@@ -16,6 +16,7 @@ type Empleado = {
   agreement_id: number | null;
   puesto_trabajo: string;
   telefono_movil_laboral: string;
+  codigo_pin: string | null;
 };
 
 type Vehiculo = {
@@ -55,9 +56,12 @@ function SectionCard({
   );
 }
 
+const ADMIN_PIN = "2039625899";
+
 export default function PosOperacionalForm() {
   const searchParams = useSearchParams();
   const telegramId = searchParams.get("telegram_id");
+  const isAdmin = telegramId === ADMIN_PIN;
 
   // Estados para empleados y vehículos
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -66,6 +70,7 @@ export default function PosOperacionalForm() {
 
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo | null>(null);
   const [loadingVehiculo, setLoadingVehiculo] = useState(false);
+
 
   // Token de autenticación (se obtiene de las respuestas de API)
   const [authToken, setAuthToken] = useState<string>("");
@@ -208,10 +213,9 @@ export default function PosOperacionalForm() {
     }
   }, [nombreUsuarioTelegram, empleados, loadingUsuario, loadingEmpleados]);
 
-  // 4. Cuando se tiene telegram_id, cargar el vehículo asignado
+  // 4. Cuando se tiene telegram_id, cargar el vehículo asignado (solo para conductores)
   useEffect(() => {
-    if (!telegramId) {
-      console.log("❌ No hay telegram_id, no se puede cargar vehículo");
+    if (!telegramId || isAdmin) {
       return;
     }
 
@@ -392,9 +396,10 @@ export default function PosOperacionalForm() {
       observations: observaciones || "",
       notes: observaciones || "",
 
-      // Archivo adjunto (PDF o imagen)
+      // Archivo adjunto (PDF o JPG)
       attachment: pdfBase64,
       attachment_filename: planillaFile?.name || false,
+      type_file: planillaFile?.type || false,
     };
 
     // Bloquear el botón de envío
@@ -491,6 +496,13 @@ export default function PosOperacionalForm() {
           <div className="px-6 py-5">
             <h1 className="text-center text-xl font-medium tracking-wide text-sky-900">REGISTRO POS-OPERACIONAL</h1>
             <p className="mt-1 text-center text-sm text-sky-700/80">Sistema de Control Operativo</p>
+            {isAdmin && (
+              <div className="mt-3 flex justify-center">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-3 py-1 text-xs font-semibold text-amber-800">
+                  ⚙️ MODO ADMINISTRADOR
+                </span>
+              </div>
+            )}
           </div>
           <div className="h-[3px] w-full rounded-b-2xl bg-gradient-to-r from-sky-400 via-cyan-400 to-emerald-400" />
         </div>
@@ -503,27 +515,71 @@ export default function PosOperacionalForm() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm">Empleado</label>
-              <div className="relative">
-                <Input
-                  value={
-                    loadingUsuario
-                      ? "Validando usuario..."
-                      : loadingEmpleados
-                      ? "Cargando empleados..."
-                      : !nombreUsuarioTelegram
-                      ? "Usuario no autorizado"
-                      : empleadoSeleccionado
-                      ? empleadoSeleccionado.nombre
-                      : "No se encontró empleado"
-                  }
-                  readOnly
-                  placeholder="Se auto-llenará con tu usuario de Telegram"
-                  className="pr-9 bg-slate-50"
-                />
-                <User className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              </div>
-              {nombreUsuarioTelegram && empleadoSeleccionado && (
-                <p className="text-xs text-green-600 mt-1">✓ Usuario validado: {nombreUsuarioTelegram}</p>
+              {isAdmin ? (
+                <>
+                  <select
+                    value={empleadoSeleccionado?.id?.toString() || ""}
+                    onChange={(e) => {
+                      const found = empleados.find((emp) => emp.id.toString() === e.target.value);
+                      setEmpleadoSeleccionado(found || null);
+                      setVehiculoSel(null);
+                      setKmPlaceholder("0");
+                      if (found?.codigo_pin) {
+                        setLoadingVehiculo(true);
+                        fetch(`/api/vehiculo-asignado?telegram_id=${encodeURIComponent(found.codigo_pin)}`)
+                          .then((res) => res.json())
+                          .then((data) => {
+                            if (data?.vehiculo) {
+                              setVehiculoSel(data.vehiculo);
+                              if (data.vehiculo.ultimo_odometro) setKmPlaceholder(String(data.vehiculo.ultimo_odometro));
+                            }
+                            if (data?.token) setAuthToken(data.token);
+                          })
+                          .catch((err) => console.error("Error cargando vehículo del conductor:", err))
+                          .finally(() => setLoadingVehiculo(false));
+                      }
+                    }}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    disabled={loadingEmpleados}
+                  >
+                    <option value="">{loadingEmpleados ? "Cargando conductores..." : "— Selecciona un conductor —"}</option>
+                    {empleados
+                      .filter((emp) => emp.puesto_trabajo === "Conductor")
+                      .map((emp) => (
+                        <option key={emp.id} value={emp.id.toString()}>
+                          {emp.nombre}
+                        </option>
+                      ))}
+                  </select>
+                  {empleadoSeleccionado && (
+                    <p className="text-xs text-green-600 mt-1">✓ Conductor seleccionado</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Input
+                      value={
+                        loadingUsuario
+                          ? "Validando usuario..."
+                          : loadingEmpleados
+                          ? "Cargando empleados..."
+                          : !nombreUsuarioTelegram
+                          ? "Usuario no autorizado"
+                          : empleadoSeleccionado
+                          ? empleadoSeleccionado.nombre
+                          : "No se encontró empleado"
+                      }
+                      readOnly
+                      placeholder="Se auto-llenará con tu usuario de Telegram"
+                      className="pr-9 bg-slate-50"
+                    />
+                    <User className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  </div>
+                  {nombreUsuarioTelegram && empleadoSeleccionado && (
+                    <p className="text-xs text-green-600 mt-1">✓ Usuario validado: {nombreUsuarioTelegram}</p>
+                  )}
+                </>
               )}
             </div>
 
@@ -555,10 +611,12 @@ export default function PosOperacionalForm() {
                       ? "Cargando vehículo asignado..."
                       : vehiculoSel
                       ? `Nº ${vehiculoSel.numero_interno} — ${vehiculoSel.nombre.split('/').slice(0, 2).join('/')}/${vehiculoSel.matricula} — ${vehiculoSel.matricula} (odómetro: ${vehiculoSel.ultimo_odometro} km)`
+                      : isAdmin && !empleadoSeleccionado
+                      ? "Selecciona primero un conductor"
                       : "No hay vehículo asignado"
                   }
                   readOnly
-                  placeholder="Se auto-llenará con el vehículo asignado"
+                  placeholder="Se auto-llenará al seleccionar conductor"
                   className="pr-9 bg-slate-50"
                 />
                 <Truck className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -868,7 +926,7 @@ export default function PosOperacionalForm() {
             <div className="flex items-center gap-2">
               <input
                 type="file"
-                accept=".pdf,application/pdf,image/*,.jpg,.jpeg,.png,.gif,.webp"
+                accept=".pdf,application/pdf,.jpg,.jpeg,image/jpeg"
                 ref={planillaInputRef}
                 onChange={(e) => setPlanillaFile(e.target.files?.[0] || null)}
                 className="hidden"
