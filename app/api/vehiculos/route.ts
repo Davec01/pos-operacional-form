@@ -30,7 +30,7 @@ export async function GET() {
         matricula: v.matricula,
         numero_interno: v.numero_interno,
         modelo: v.modelo,
-        ultimo_odometro: v.ultimo_odometro,
+        ultimo_odometro: v.odometer_post,
         conductor: v.conductor,
         estado: v.estado,
         contrato: v.contrato,

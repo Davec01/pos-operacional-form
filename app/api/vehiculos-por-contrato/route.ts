@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         matricula: vehiculo.matricula,
         numero_interno: vehiculo.numero_interno,
         modelo: vehiculo.modelo,
-        ultimo_odometro: vehiculo.ultimo_odometro,
+        ultimo_odometro: vehiculo.odometer_post,
         conductor: vehiculo.conductor,
         estado: vehiculo.estado,
         tipo_solicitud: vehiculo.tipo_solicitud,
