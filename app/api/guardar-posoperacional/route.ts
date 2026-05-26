@@ -222,8 +222,8 @@ export async function POST(req: NextRequest) {
 
     // Hacer POST a Odoo Producción
     const response = await fetch(
-      // "https://www.viacotur.com/api/posoperacional/register",
-      "https://viacotur16-qa15-31954089.dev.odoo.com/api/posoperacional/register",
+      "https://www.viacotur.com/api/posoperacional/register",
+      // "https://viacotur16-qa15-31954089.dev.odoo.com/api/posoperacional/register",
 
       {
         method: "POST",
