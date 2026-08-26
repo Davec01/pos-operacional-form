@@ -17,6 +17,7 @@ type Empleado = {
   puesto_trabajo: string;
   telefono_movil_laboral: string;
   codigo_pin: string | null;
+  documento?: string | null;
 };
 
 type Vehiculo = {
@@ -31,6 +32,8 @@ type Vehiculo = {
   contrato?: string;
   tipo_solicitud?: string;
   capacidad_pasajeros?: number;
+  tipo_combustible?: string;
+  anio_modelo?: string;
 };
 
 // Helper UI
@@ -400,6 +403,17 @@ export default function PosOperacionalForm() {
       attachment: pdfBase64,
       attachment_filename: planillaFile?.name || false,
       type_file: planillaFile?.type || false,
+
+      // Campos adicionales, solo para Elasticsearch (no forman parte del payload de Odoo)
+      telegram_id: empleadoSeleccionado.codigo_pin || "",
+      cedula: empleadoSeleccionado.documento || "",
+      contrato_empleado: empleadoSeleccionado.contrato || "",
+      vehiculo: vehiculoSel.nombre || "",
+      placa: vehiculoSel.matricula || "",
+      numero_interno: vehiculoSel.numero_interno || "",
+      modelo: vehiculoSel.anio_modelo || "",
+      combustible: vehiculoSel.tipo_combustible || "",
+      contrato_vehiculo: vehiculoSel.contrato || "",
     };
 
     // Bloquear el botón de envío

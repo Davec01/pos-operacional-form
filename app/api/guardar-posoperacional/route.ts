@@ -115,39 +115,50 @@ async function createIndexIfNotExists() {
             properties: {
               // Campos de texto
               conductor: { type: "keyword" },
-              state: { type: "keyword" },
-              cost_id: { type: "keyword" },
-              fuel_type: { type: "keyword" },
-              observations: { type: "keyword" },
-              notes: { type: "keyword" },
-              attachment_filename: { type: "keyword" },
-              odoo_response: { type: "keyword" },
+              cedula: { type: "keyword" },
+              estado: { type: "keyword" },
+              costo_id: { type: "keyword" },
+              tipo_combustible: { type: "keyword" },
+              observaciones: { type: "keyword" },
+              notas: { type: "keyword" },
+              nombre_archivo_adjunto: { type: "keyword" },
+              tipo_archivo: { type: "keyword" },
+              respuesta_odoo: { type: "keyword" },
+              telegram_id: { type: "keyword" },
+              vehiculo: { type: "keyword" },
+              placa: { type: "keyword" },
+              modelo: { type: "keyword" },
+              numero_interno: { type: "keyword" },
+              combustible: { type: "keyword" },
+              contrato_vehiculo: { type: "keyword" },
+              contrato_empleado: { type: "keyword" },
+              tags: { type: "keyword" },
 
               // Campos numéricos
-              company_id: { type: "integer" },
-              employee_id: { type: "integer" },
-              agreement_id: { type: "integer" },
-              vehicle_id: { type: "integer" },
-              lunch_hour: { type: "float" },
-              km_start: { type: "float" },
-              km_end: { type: "float" },
-              km_traveled: { type: "float" },
-              fuel_value: { type: "float" },
-              km_fuel: { type: "float" },
-              gallons: { type: "float" },
-              feeding_value: { type: "float" },
-              lodging_value: { type: "float" },
-              tolls_value: { type: "float" },
-              others_value: { type: "float" },
+              empresa_id: { type: "integer" },
+              empleado_id: { type: "integer" },
+              contrato_id: { type: "integer" },
+              vehiculo_id: { type: "integer" },
+              hora_almuerzo: { type: "float" },
+              km_inicio: { type: "float" },
+              km_final: { type: "float" },
+              km_viajados: { type: "float" },
+              valor_combustible: { type: "float" },
+              km_combustible: { type: "float" },
+              galones: { type: "float" },
+              valor_alimentacion: { type: "float" },
+              valor_hospedaje: { type: "float" },
+              valor_peajes: { type: "float" },
+              valor_otros: { type: "float" },
 
               // Campos booleanos
               fuel: { type: "boolean" },
-              fuel_expenses: { type: "boolean" },
-              feeding: { type: "boolean" },
-              lodging: { type: "boolean" },
-              tolls: { type: "boolean" },
-              others: { type: "boolean" },
-              has_attachment: { type: "boolean" },
+              gastos_combustible: { type: "boolean" },
+              alimentacion: { type: "boolean" },
+              hospedaje: { type: "boolean" },
+              peajes: { type: "boolean" },
+              otros: { type: "boolean" },
+              tiene_adjunto: { type: "boolean" },
 
               // Fechas
               entrada: { type: "date", format: "yyyy-MM-dd HH:mm:ss" },
@@ -268,21 +279,64 @@ export async function POST(req: NextRequest) {
       // Crear índice si no existe (con mapping de keywords)
       await createIndexIfNotExists();
 
-      // Preparar documento sin el attachment (demasiado grande para keyword)
-      const { attachment, check_in, check_out, ...docWithoutAttachment } = odooBody;
+      // Documento traducido a español para Elasticsearch.
+      // odooBody (y por lo tanto Odoo/Postgres) no se toca: este objeto es exclusivo de ES.
+      const esDocument = {
+        estado: odooBody.state,
+        empresa_id: odooBody.company_id,
+        empleado_id: odooBody.employee_id,
+        contrato_id: odooBody.agreement_id,
+        vehiculo_id: odooBody.vehicle_id,
+        hora_almuerzo: odooBody.lunch_hour,
+        km_inicio: odooBody.km_start,
+        km_final: odooBody.km_end,
+        km_viajados: odooBody.km_traveled,
+        costo_id: odooBody.cost_id,
 
-      // Insertar documento con timestamp y nombres de campos renombrados
+        tipo_combustible: odooBody.fuel_type,
+        fuel: odooBody.fuel,
+        valor_combustible: odooBody.fuel_value,
+        gastos_combustible: odooBody.fuel_expenses,
+        km_combustible: odooBody.km_fuel,
+        galones: odooBody.gallons,
+
+        valor_alimentacion: odooBody.feeding_value,
+        alimentacion: odooBody.feeding,
+        valor_hospedaje: odooBody.lodging_value,
+        hospedaje: odooBody.lodging,
+        valor_peajes: odooBody.tolls_value,
+        peajes: odooBody.tolls,
+        valor_otros: odooBody.others_value,
+        otros: odooBody.others,
+
+        observaciones: odooBody.observations,
+        notas: odooBody.notes,
+        nombre_archivo_adjunto: odooBody.attachment_filename,
+        tipo_archivo: odooBody.type_file,
+
+        conductor: data.conductor || "",
+        entrada: odooBody.check_in,
+        salida: odooBody.check_out,
+        timestamp: new Date().toISOString(),
+        respuesta_odoo: JSON.stringify(result),
+        tiene_adjunto: !!odooBody.attachment,
+
+        // Campos nuevos, enviados directamente por el frontend (no forman parte de odooBody)
+        telegram_id: data.telegram_id || "",
+        cedula: data.cedula || "",
+        vehiculo: data.vehiculo || "",
+        placa: data.placa || "",
+        modelo: data.modelo || "",
+        numero_interno: data.numero_interno || "",
+        combustible: data.combustible || "",
+        contrato_vehiculo: data.contrato_vehiculo || "",
+        contrato_empleado: data.contrato_empleado || "",
+        tags: "pos_operacional",
+      };
+
       await esClient.index({
         index: process.env.ELASTICSEARCH_INDEX || "pos_operacional",
-        document: {
-          ...docWithoutAttachment,
-          conductor: data.conductor || "", // Nombre del conductor
-          entrada: check_in, // Renombrar check_in a entrada
-          salida: check_out, // Renombrar check_out a salida
-          timestamp: new Date().toISOString(), // Timestamp solo para Elasticsearch
-          odoo_response: JSON.stringify(result),
-          has_attachment: !!attachment, // Solo guardamos si tiene attachment o no
-        },
+        document: esDocument,
       });
       console.log("✅ Datos guardados en Elasticsearch");
     } catch (esError) {

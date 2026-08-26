@@ -120,6 +120,8 @@ export async function GET(request: NextRequest) {
         contrato: vehiculo.contrato,
         tipo_solicitud: vehiculo.tipo_solicitud,
         capacidad_pasajeros: vehiculo.capacidad_pasajeros,
+        tipo_combustible: vehiculo.tipo_combustible,
+        anio_modelo: vehiculo.Anio_modelo,
       },
       token,
     };

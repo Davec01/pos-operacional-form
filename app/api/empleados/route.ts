@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         puesto_trabajo: emp.puesto_trabajo,
         telefono_movil_laboral: emp.telefono_movil_laboral,
         codigo_pin: emp.codigo_pin || null,
+        documento: emp.identificacion || null,
       }))
       .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
 
