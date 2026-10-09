@@ -1,27 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "@elastic/elasticsearch";
-import { Pool } from "pg";
+import { pool } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
-
-// Configuración de PostgreSQL
-const DB_CONFIG = {
-  host: "34.174.97.159",
-  port: 5432,
-  database: "viacotur",
-  user: "viacotur",
-  password: "viacotur_pass",
-};
-
-// Pool de conexiones de PostgreSQL (lazy initialization)
-let pgPool: Pool | null = null;
-
-function getPgPool() {
-  if (!pgPool) {
-    pgPool = new Pool(DB_CONFIG);
-  }
-  return pgPool;
-}
 
 // Función para obtener el cliente de Elasticsearch (lazy initialization)
 function getEsClient() {
@@ -39,8 +20,6 @@ function getEsClient() {
 
 // Función para guardar en PostgreSQL
 async function saveToPostgres(data: any) {
-  const pool = getPgPool();
-
   try {
     const query = `
       INSERT INTO pos_operacional (
